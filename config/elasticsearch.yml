@@ -1,0 +1,6 @@
+# Elasticsearch config overrides for local development.
+# Copy this file into your Elasticsearch installation's config/ directory.
+
+xpack.ml.enabled: false
+xpack.security.enabled: false
+xpack.security.enrollment.enabled: false
