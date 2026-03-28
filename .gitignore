@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Logs — do not commit generated logs
+model/training.log
+
+# Elasticsearch data volume
+es_data/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
