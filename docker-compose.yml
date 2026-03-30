@@ -1,17 +1,9 @@
 version: "3.8"
 
-# ---------------------------------------------------------------------------
-# ELK Stack + model runner
-# All three elastic services pin to the same version via ELK_VERSION.
-# ---------------------------------------------------------------------------
-
-x-elk-version: &elk-version "8.13.0"
-
 services:
 
-  # -------------------------------------------------------------------------
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:*elk-version
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
@@ -29,9 +21,8 @@ services:
     volumes:
       - es_data:/usr/share/elasticsearch/data
 
-  # -------------------------------------------------------------------------
   kibana:
-    image: docker.elastic.co/kibana/kibana:*elk-version
+    image: docker.elastic.co/kibana/kibana:8.13.0
     container_name: kibana
     depends_on:
       elasticsearch:
@@ -46,9 +37,8 @@ services:
       timeout: 5s
       retries: 12
 
-  # -------------------------------------------------------------------------
   logstash:
-    image: docker.elastic.co/logstash/logstash:*elk-version
+    image: docker.elastic.co/logstash/logstash:8.13.0
     container_name: logstash
     depends_on:
       elasticsearch:
@@ -60,22 +50,28 @@ services:
       - LS_JAVA_OPTS=-Xms256m -Xmx256m
     volumes:
       - ./logstash/pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf:ro
-      - ./model:/app/model                 # share log file with model runner
+      - ./model:/app/model
     command: logstash -f /usr/share/logstash/pipeline/pipeline.conf
 
-  # -------------------------------------------------------------------------
   model:
     image: python:3.11-slim
     container_name: lr_model
     depends_on:
-      - logstash
+      kibana:
+        condition: service_healthy
     working_dir: /app
     volumes:
       - ./model:/app/model
+      - ./kibana:/app/kibana
       - ./requirements.txt:/app/requirements.txt
     command: >
-      bash -c "pip install -r requirements.txt -q &&
-               python model/train.py"
+      bash -c "
+        pip install -r requirements.txt -q &&
+        curl -sf -X POST http://kibana:5601/api/saved_objects/_import?overwrite=true
+          -H 'kbn-xsrf: true'
+          --form file=@/app/kibana/dashboard_export.ndjson &&
+        python model/train.py
+      "
 
 volumes:
   es_data:
